@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:codex-meter-cn:snapshot:1",
+  "title": "Codex Meter CN snapshot v1",
+  "type": "object", "additionalProperties": false,
+  "required": ["schemaVersion", "collectedAt", "expiresAt", "windows"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "collectedAt": {"type": "integer", "minimum": 1},
+    "expiresAt": {"type": "integer", "minimum": 1},
+    "windows": {
+      "type": "object", "additionalProperties": false, "required": ["fiveHour", "weekly"],
+      "properties": {
+        "fiveHour": {"anyOf": [{"type":"null"}, {"allOf": [{"$ref":"#/$defs/window"}, {"properties":{"windowMinutes":{"const":300}}}]}]},
+        "weekly": {"anyOf": [{"type":"null"}, {"allOf": [{"$ref":"#/$defs/window"}, {"properties":{"windowMinutes":{"const":10080}}}]}]}
+      }
+    }
+  },
+  "$defs": {"window": {
+    "type":"object", "additionalProperties":false, "required":["usedPercent","windowMinutes","resetsAt"],
+    "properties": {
+      "usedPercent":{"type":"number","minimum":0,"maximum":100},
+      "windowMinutes":{"type":"integer"},
+      "resetsAt":{"anyOf":[{"type":"null"},{"type":"integer","minimum":1}]}
+    }
+  }}
+}

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "collectedAt": 1793100000,
+  "expiresAt": 1793100900,
+  "windows": {
+    "fiveHour": { "usedPercent": 37, "windowMinutes": 300, "resetsAt": 1793114400 },
+    "weekly": { "usedPercent": 68, "windowMinutes": 10080, "resetsAt": 1793532000 }
+  }
+}

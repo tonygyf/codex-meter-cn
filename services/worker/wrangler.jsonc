@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "codex-meter-cn",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-10-11",
+  "workers_dev": true,
+  "kv_namespaces": [
+    { "binding": "SNAPSHOTS", "id": "REPLACE_WITH_YOUR_KV_NAMESPACE_ID" }
+  ],
+  "observability": { "enabled": false }
+  // READ_TOKEN 与 WRITE_TOKEN 使用 wrangler secret put，禁止写在本文件。
+}
