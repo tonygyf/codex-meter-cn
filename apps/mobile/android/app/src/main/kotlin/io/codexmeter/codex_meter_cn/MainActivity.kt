@@ -15,6 +15,14 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "codex_meter/native").setMethodCallHandler { call, result ->
             try {
                 when (call.method) {
+                    "addQuickTile" -> {
+                        if (Build.VERSION.SDK_INT >= 33) {
+                            getSystemService(android.app.StatusBarManager::class.java).requestAddTileService(
+                                android.content.ComponentName(this, MeterTileService::class.java), "Codex 额度",
+                                android.graphics.drawable.Icon.createWithResource(this, R.drawable.ic_quota_tile), mainExecutor
+                            ) { code -> result.success(code == android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED || code == android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED) }
+                        } else result.success(false)
+                    }
                     "load" -> result.success(mapOf("config" to MeterStore.config(this)?.toString(), "snapshot" to MeterStore.prefs(this).getString("snapshot", null)))
                     "save" -> { MeterStore.save(this, JSONObject(call.arguments as String)); result.success(null) }
                     "updateSnapshot" -> { MeterStore.accept(this, call.arguments as String); result.success(null) }

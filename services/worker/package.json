@@ -15,5 +15,8 @@
     "tsx": "4.20.6",
     "typescript": "5.9.3",
     "wrangler": "4.153.0"
+  },
+  "dependencies": {
+    "jose": "6.2.13"
   }
 }

@@ -64,6 +64,7 @@ object MeterStore {
         NotificationManagerCompat.from(context).cancelAll()
         scheduleWork(context, config)
         MeterWidget.updateAll(context)
+        MeterTileService.update(context)
     }
     fun scheduleWork(context: Context, config: JSONObject) {
         val work = WorkManager.getInstance(context)
@@ -78,6 +79,7 @@ object MeterStore {
         val snapshot = SnapshotProtocol.parse(raw)
         prefs(context).edit().putString("snapshot", raw).putBoolean("lastError", false).commit()
         MeterWidget.updateAll(context)
+        MeterTileService.update(context)
         remind(context, config, snapshot)
     }
     private fun alarmIntent(context: Context, index: Int): PendingIntent = PendingIntent.getBroadcast(context, 100 + index,

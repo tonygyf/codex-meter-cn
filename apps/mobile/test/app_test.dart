@@ -5,7 +5,7 @@ import 'package:codex_meter_cn/snapshot.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-class MemoryPlatform implements MeterPlatform {
+class MemoryPlatform extends MeterPlatform {
   Map<String, dynamic> data = {};
   MeterConfig? saved;
   @override

@@ -1,6 +1,6 @@
 # Codex Meter CN
 
-中文优先的 Android Codex 额度查看器。Flutter + Dart 客户端，TypeScript Cloudflare Worker + KV 快照网关，Python 标准库采集器。当前为 **0.1.0 MVP 源码**，不是已上线服务，与 OpenAI 无隶属关系。
+中文优先的 Android Codex 额度查看器。Flutter + Dart 客户端，TypeScript Cloudflare Worker + KV 快照网关，Python 标准库采集器。当前为 **0.1.0 MVP**，支持自部署服务，与 OpenAI 无隶属关系。
 
 ## 已实现
 
@@ -9,6 +9,8 @@
 - 本地离线快照、过期提示；重置时间到达后等待新快照，不自行恢复到 100%。
 - Android Keystore 加密保存数据源设置和只读令牌；读写令牌隔离。
 - Kotlin 紧凑桌面小组件、WorkManager 后台刷新、本地低额度和预计重置提醒。
+- Android 下拉快捷设置额度块，点击刷新、长按打开应用；图标上下两行分别显示 5 小时 / 每周剩余百分比，兼容隐藏副标题的小米控制中心。
+- Worker 中文响应式管理页，兼容电脑横屏和手机竖屏；云端设备授权属于实验功能。
 - Python app-server 只读采集、模拟采集、直连 HTTP 网关、上传 Worker。
 - 统一版本化 JSON、测试、GitHub Actions 测试及 debug APK 构建。
 

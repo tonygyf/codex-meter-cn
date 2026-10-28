@@ -24,3 +24,9 @@ local.properties
 build/
 coverage/
 work/
+*.apk
+*.aab
+*.private.html
+.flutter-plugins
+.flutter-plugins-dependencies
+captures/

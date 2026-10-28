@@ -70,4 +70,25 @@ void main() {
     expect(parsed.url, c.workerUrl);
     expect(parsed.directToken, 'direct');
   });
+  test('Worker hostname is normalized without weakening URL validation', () {
+    expect(
+      normalizeWorkerEndpoint('meter.example.com'),
+      'https://meter.example.com/v1/snapshot',
+    );
+    expect(
+      normalizeWorkerEndpoint('https://meter.example.com/'),
+      'https://meter.example.com/v1/snapshot',
+    );
+    expect(
+      normalizeWorkerEndpoint('https://meter.example.com/v1/snapshot'),
+      'https://meter.example.com/v1/snapshot',
+    );
+    for (final value in [
+      'http://meter.example.com',
+      'meter.example.com?token=secret',
+      'https://u:p@meter.example.com',
+    ]) {
+      expect(() => normalizeWorkerEndpoint(value), throwsFormatException);
+    }
+  });
 }

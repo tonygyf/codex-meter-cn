@@ -18,6 +18,7 @@ class MeterRefreshWorker(context: Context, params: WorkerParameters) : Worker(co
             connection.connectTimeout = 10000
             connection.readTimeout = 10000
             connection.setRequestProperty("Authorization", "Bearer $token")
+            connection.setRequestProperty("User-Agent", "CodexMeterCN/0.1 AndroidBackground")
             if (connection.responseCode != 200) throw IllegalStateException("fetch_failed")
             val bytes = connection.inputStream.use { it.readBytesBounded() }
             MeterStore.accept(applicationContext, String(bytes, Charsets.UTF_8), source)
@@ -25,6 +26,7 @@ class MeterRefreshWorker(context: Context, params: WorkerParameters) : Worker(co
         } catch (_: Exception) {
             MeterStore.prefs(applicationContext).edit().putBoolean("lastError", true).apply()
             MeterWidget.updateAll(applicationContext)
+            MeterTileService.update(applicationContext)
             // A periodic run will try again. Do not spin on invalid credentials.
             return Result.success()
         } finally { connection?.disconnect() }

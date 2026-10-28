@@ -216,6 +216,25 @@ class _MeterHomeState extends State<MeterHome> with WidgetsBindingObserver {
                   : const Icon(Icons.refresh),
               label: Text(loading ? '正在刷新…' : '刷新额度'),
             ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final added = await widget.platform.addQuickTile();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        added
+                            ? 'Codex 额度快捷开关已添加，下拉状态栏查看'
+                            : '下拉快捷设置 → 编辑 → 添加「Codex 额度」。点击刷新，长按打开应用。',
+                      ),
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.dashboard_customize_outlined),
+              label: const Text('添加状态栏额度快捷开关'),
+            ),
             const SizedBox(height: 16),
             const Text(
               '桌面长按 → 小组件 → Codex Meter CN。后台约每 15 分钟尝试更新，实际时间由 Android 决定。',
@@ -329,9 +348,10 @@ class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController directUrl,
       workerUrl,
       directToken,
-      workerToken;
+      workerToken,
+      pairCode;
   String? error;
-  bool saving = false;
+  bool saving = false, pairing = false;
   @override
   void initState() {
     super.initState();
@@ -343,11 +363,18 @@ class _SettingsPageState extends State<SettingsPage> {
     workerUrl = TextEditingController(text: c.workerUrl);
     directToken = TextEditingController(text: c.directToken);
     workerToken = TextEditingController(text: c.workerToken);
+    pairCode = TextEditingController();
   }
 
   @override
   void dispose() {
-    for (final c in [directUrl, workerUrl, directToken, workerToken]) {
+    for (final c in [
+      directUrl,
+      workerUrl,
+      directToken,
+      workerToken,
+      pairCode,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -362,7 +389,9 @@ class _SettingsPageState extends State<SettingsPage> {
       final c = MeterConfig(
         mode: mode,
         directUrl: directUrl.text.trim(),
-        workerUrl: workerUrl.text.trim(),
+        workerUrl: mode == 'worker'
+            ? normalizeWorkerEndpoint(workerUrl.text)
+            : workerUrl.text.trim(),
         directToken: directToken.text.trim(),
         workerToken: workerToken.text.trim(),
         notifications: notifications,
@@ -383,6 +412,26 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Future<void> pairAndSave() async {
+    setState(() {
+      pairing = true;
+      error = null;
+    });
+    try {
+      final token = await pairWorker(workerUrl.text, pairCode.text);
+      if (!mounted) return;
+      workerToken.text = token;
+      pairCode.clear();
+      await save();
+    } on FormatException catch (e) {
+      if (mounted) setState(() => error = e.message);
+    } catch (_) {
+      if (mounted) setState(() => error = '无法连接 Worker，请检查域名和网络');
+    } finally {
+      if (mounted) setState(() => pairing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('数据源与提醒')),
@@ -396,7 +445,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ButtonSegment(value: 'worker', label: Text('Worker')),
           ],
           selected: {mode},
-          onSelectionChanged: saving
+          onSelectionChanged: saving || pairing
               ? null
               : (value) => setState(() => mode = value.first),
         ),
@@ -404,22 +453,44 @@ class _SettingsPageState extends State<SettingsPage> {
         if (mode != 'demo') ...[
           TextField(
             controller: mode == 'worker' ? workerUrl : directUrl,
+            enabled: !saving && !pairing,
             autocorrect: false,
             keyboardType: TextInputType.url,
-            decoration: const InputDecoration(
-              labelText: '快照完整地址',
-              hintText: 'https://…/v1/snapshot',
+            decoration: InputDecoration(
+              labelText: mode == 'worker' ? 'Worker 域名或完整地址' : '快照完整地址',
+              hintText: mode == 'worker'
+                  ? 'meter.example.com'
+                  : 'https://…/v1/snapshot',
               border: OutlineInputBorder(),
             ),
           ),
           const SizedBox(height: 16),
+          if (mode == 'worker') ...[
+            TextField(
+              controller: pairCode,
+              enabled: !saving && !pairing,
+              autocorrect: false,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                labelText: '一次性连接码',
+                hintText: '管理页生成，5 分钟有效',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: saving || pairing ? null : pairAndSave,
+              child: Text(pairing ? '连接中…' : '用连接码连接并保存'),
+            ),
+            const SizedBox(height: 12),
+          ],
           TextField(
             controller: mode == 'worker' ? workerToken : directToken,
             obscureText: true,
             autocorrect: false,
             enableSuggestions: false,
             decoration: const InputDecoration(
-              labelText: '只读令牌',
+              labelText: '只读令牌（使用连接码时自动填写）',
               border: OutlineInputBorder(),
             ),
           ),
@@ -465,7 +536,7 @@ class _SettingsPageState extends State<SettingsPage> {
         if (error != null) Notice(error!),
         const SizedBox(height: 24),
         FilledButton(
-          onPressed: saving ? null : save,
+          onPressed: saving || pairing ? null : save,
           child: Text(saving ? '保存中…' : '保存并连接'),
         ),
       ],

@@ -174,7 +174,7 @@ def upload(snapshot, url, token):
         raise ValueError("write_token_too_short")
     body = json.dumps(validate_snapshot(snapshot), allow_nan=False).encode()
     request = Request(url, data=body, method="PUT", headers={
-        "Authorization": "Bearer " + token, "Content-Type": "application/json"})
+        "Authorization": "Bearer " + token, "Content-Type": "application/json", "User-Agent": "CodexMeterCN/0.1 Collector"})
     with build_opener(NoRedirect).open(request, timeout=15) as response:
         if response.status != 200:
             raise RuntimeError("upload_failed")

@@ -1,6 +1,11 @@
 import { validateSnapshot } from './protocol';
+import { adminPage } from './admin-page';
+import { safeError } from './account-service';
 
-export interface Env { SNAPSHOTS: KVNamespace; READ_TOKEN: string; WRITE_TOKEN: string }
+export interface Env extends Pick<CloudflareBindings, 'SNAPSHOTS'> {
+  READ_TOKEN: string; WRITE_TOKEN: string;
+  ACCOUNT?: CloudflareBindings['ACCOUNT']; ADMIN_TOKEN?: string; VAULT_KEY?: string; CLOUD_ACCOUNT_MODE?: string;
+}
 const LIMIT = 16 * 1024;
 function json(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), { status, headers: {
@@ -16,8 +21,8 @@ async function equal(a: string, b: string): Promise<boolean> {
   for (let i = 0; i < left.length; i++) difference |= left[i] ^ right[i];
   return difference === 0;
 }
-async function readBody(request: Request): Promise<unknown> {
-  if (Number(request.headers.get('content-length')) > LIMIT) throw new Error('too_large');
+async function readBody(request: Request, limit = LIMIT): Promise<unknown> {
+  if (Number(request.headers.get('content-length')) > limit) throw new Error('too_large');
   const reader = request.body?.getReader();
   if (!reader) throw new Error('invalid_json');
   let size = 0;
@@ -26,7 +31,7 @@ async function readBody(request: Request): Promise<unknown> {
     const { done, value } = await reader.read();
     if (done) break;
     size += value.length;
-    if (size > LIMIT) { await reader.cancel(); throw new Error('too_large'); }
+    if (size > limit) { await reader.cancel(); throw new Error('too_large'); }
     chunks.push(value);
   }
   const body = new Uint8Array(size);
@@ -37,7 +42,41 @@ async function readBody(request: Request): Promise<unknown> {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === '/' && request.method === 'GET') return adminPage();
     if (url.pathname === '/health' && request.method === 'GET') return json({ ok: true, schemaVersion: 1 });
+    if (url.pathname === '/api/pair' && request.method === 'POST' && !url.search) {
+      if (!env.ACCOUNT || !env.READ_TOKEN || env.READ_TOKEN.length < 32) return json({error:'configure_vault'},503);
+      try {
+        if (Number(request.headers.get('content-length')) > 512) return json({error:'invalid_pair_code'},400);
+        const input = await readBody(request, 512);
+        if (!input || typeof input !== 'object' || !('code' in input) || typeof input.code !== 'string' ||
+            !/^[2-9A-HJ-NP-Z]{6}-?[2-9A-HJ-NP-Z]{6}$/i.test(input.code)) return json({error:'invalid_pair_code'},400);
+        if (!await env.ACCOUNT.getByName('owner').consumePairCode(input.code)) return json({error:'invalid_pair_code'},401);
+        return json({url:`${url.origin}/v1/snapshot`,readToken:env.READ_TOKEN});
+      } catch { return json({error:'invalid_pair_code'},400); }
+    }
+    if (url.pathname.startsWith('/api/admin/')) {
+      if (!env.ACCOUNT || !env.ADMIN_TOKEN || !env.VAULT_KEY || env.ADMIN_TOKEN.length < 32 ||
+          [env.READ_TOKEN, env.WRITE_TOKEN].includes(env.ADMIN_TOKEN)) return json({ error: 'configure_vault' }, 503);
+      const authorization = request.headers.get('authorization') ?? '';
+      if (url.search || authorization.length > 1024 || !(await equal(authorization, `Bearer ${env.ADMIN_TOKEN}`))) return json({ error: 'unauthorized' }, 401);
+      const path = url.pathname.slice('/api/admin/'.length);
+      const account = env.ACCOUNT.getByName('owner');
+      try {
+        if (request.method === 'GET' && path === 'status') return json(await account.status());
+        if (request.method === 'GET' && path === 'connection') return json({ url: `${url.origin}/v1/snapshot`, readToken: env.READ_TOKEN });
+        if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
+        if (path === 'login/start') return json(await account.start());
+        if (path === 'login/poll') return json(await account.poll());
+        if (path === 'refresh') {
+          try { return json({ snapshot: await account.refresh(true), refreshError: null }); }
+          catch (error) { return json({ snapshot: await account.cached(), refreshError: safeError(error) }); }
+        }
+        if (path === 'pair') return json(await account.createPairCode());
+        if (path === 'logout') return json(await account.logout());
+        return json({ error: 'not_found' }, 404);
+      } catch (error) { return json({ error: safeError(error) }, 502); }
+    }
     if (url.pathname !== '/v1/snapshot' || url.search) return json({ error: 'not_found' }, 404);
     if (!['GET', 'PUT'].includes(request.method)) return json({ error: 'method_not_allowed' }, 405);
     if (!env.READ_TOKEN || !env.WRITE_TOKEN || env.READ_TOKEN.length < 32 ||
@@ -50,11 +89,22 @@ export default {
     }
     try {
       if (request.method === 'GET') {
+        if (env.ACCOUNT) {
+          try {
+            const current = await env.ACCOUNT.getByName('owner').refresh();
+            if (current) return json(validateSnapshot(current));
+          } catch {
+            const cached = await env.ACCOUNT.getByName('owner').cached();
+            if (cached) return json(validateSnapshot(cached));
+          }
+          if (env.CLOUD_ACCOUNT_MODE === 'true') return json({error:'no_snapshot'},404);
+        }
         const value = await env.SNAPSHOTS.get('latest');
         if (!value) return json({ error: 'no_snapshot' }, 404);
         // Keep the original expiry; offline/stale data must never look newly collected.
         return json(validateSnapshot(JSON.parse(value)));
       }
+      if (env.CLOUD_ACCOUNT_MODE === 'true') return json({error:'cloud_account_managed'},409);
       if (!request.headers.get('content-type')?.toLowerCase().startsWith('application/json')) {
         return json({ error: 'json_required' }, 415);
       }
