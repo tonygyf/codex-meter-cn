@@ -38,10 +38,10 @@ class MeterWidget : AppWidgetProvider() {
             val style=prefs.getString("widget_style_$id",prefs.getString("defaultWidgetStyle","water"))!!
             val theme=prefs.getString("widget_theme_$id",prefs.getString("defaultWidgetTheme","mint"))!!
             val motion=prefs.getBoolean("widget_motion_$id",prefs.getBoolean("defaultWidgetMotion",true)) && style=="water"
-            val frames=if(motion)QuotaWidgetRenderer.waterFrames(snapshot,prefs.getBoolean("lastError",false),theme)else emptyList()
+            val display=context.resources.displayMetrics
+            val frames=if(motion)QuotaWidgetRenderer.waterFrames(snapshot,prefs.getBoolean("lastError",false),theme,display.widthPixels*display.heightPixels)else emptyList()
             val options=manager.getAppWidgetOptions(id)
             val sizes=if(android.os.Build.VERSION.SDK_INT>=31)options.getParcelableArrayList<android.util.SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)?.distinct()?.take(16) else null
-            val display=context.resources.displayMetrics
             val pixelBudget=display.widthPixels.toDouble()*display.heightPixels/4/(sizes?.size?:1)
             fun views(width:Int,height:Int):RemoteViews {
                 val views=RemoteViews(context.packageName,R.layout.meter_widget)

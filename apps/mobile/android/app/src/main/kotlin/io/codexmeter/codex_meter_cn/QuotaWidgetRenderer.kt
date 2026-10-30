@@ -9,6 +9,9 @@ object WidgetSizing {
 }
 
 object WaterMotion {
+    const val FRAMES=150
+    const val INTERVAL_MILLIS=20
+    fun frameWidth(screenPixels: Int): Int = sqrt(screenPixels.toDouble()/2/FRAMES/1.5).toInt().coerceIn(16,64)
     fun surface(remaining: Double, x: Double, phase: Double, offset: Double = 0.0): Double {
         val level=1-remaining.coerceIn(0.0,100.0)/100
         val amplitude=min(.02,min(level,1-level)/1.5)
@@ -101,21 +104,22 @@ object QuotaWidgetRenderer {
         }
         return bitmap
     }
-    fun waterFrames(snapshot: JSONObject?, offline: Boolean, theme: String): List<Bitmap> {
+    fun waterFrames(snapshot: JSONObject?, offline: Boolean, theme: String, screenPixels: Int = 1080*2400): List<Bitmap> {
         val colors=palette(theme)
         val (_,fresh)=QuotaTileSummary.text(snapshot,System.currentTimeMillis()/1000,offline)
         val amount=snapshot?.getJSONObject("windows")?.optJSONObject("fiveHour")?.getDouble("usedPercent")?.let{100-it}
-        return (0 until 32).map { index ->
-            val bitmap=Bitmap.createBitmap(96,128,Bitmap.Config.ARGB_8888)
+        val width=WaterMotion.frameWidth(screenPixels);val height=width*3/2
+        return (0 until WaterMotion.FRAMES).map { index ->
+            val bitmap=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888)
             val c=Canvas(bitmap);c.drawColor(colors.background)
             if(amount!=null) {
-                val phase=index*2*PI/32
+                val phase=index*2*PI/WaterMotion.FRAMES
                 fun wave(offset:Double):Path=Path().apply {
-                    for(x in -2..98 step 2) {
-                        val y=128*WaterMotion.surface(amount,x/96.0,phase,offset)
+                    for(x in -2..width+2) {
+                        val y=height*WaterMotion.surface(amount,x.toDouble()/width,phase,offset)
                         if(x==-2)moveTo(x.toFloat(),y.toFloat())else lineTo(x.toFloat(),y.toFloat())
                     }
-                    lineTo(98f,130f);lineTo(-2f,130f);close()
+                    lineTo(width+2f,height+2f);lineTo(-2f,height+2f);close()
                 }
                 val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=if(fresh)colors.water else colors.muted;alpha=if(theme=="night")65 else 40}
                 c.drawPath(wave(1.4),p)

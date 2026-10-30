@@ -37,7 +37,7 @@ class WidgetConfigActivity : Activity() {
                 val container=FrameLayout(this).apply{background=getDrawable(R.drawable.widget_background);clipToOutline=true}
                 val params=LinearLayout.LayoutParams(dp(230),dp(height)).apply{gravity=android.view.Gravity.CENTER_HORIZONTAL}
                 if(frames.isNotEmpty()) {
-                    val flipper=ViewFlipper(this).apply{flipInterval=100}
+                    val flipper=ViewFlipper(this).apply{flipInterval=WaterMotion.INTERVAL_MILLIS}
                     for(bitmap in frames)flipper.addView(ImageView(this).apply{setImageBitmap(bitmap);scaleType=ImageView.ScaleType.FIT_XY},FrameLayout.LayoutParams(-1,-1))
                     container.addView(flipper,FrameLayout.LayoutParams(-1,-1));flipper.startFlipping();flippers.add(flipper)
                 }

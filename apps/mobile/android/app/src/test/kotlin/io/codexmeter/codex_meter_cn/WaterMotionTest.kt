@@ -5,6 +5,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class WaterMotionTest {
+    @Test fun fiftyFpsCycleFitsSmallDeviceBitmapBudget() {
+        assertEquals(50,1000/WaterMotion.INTERVAL_MILLIS)
+        assertEquals(3000,WaterMotion.FRAMES*WaterMotion.INTERVAL_MILLIS)
+        for(pixels in listOf(480*800,720*1280,1280*2772)) {
+            val width=WaterMotion.frameWidth(pixels)
+            assertTrue(width*(width*3/2)*4*WaterMotion.FRAMES <= pixels*2)
+        }
+    }
     @Test fun emptyAndFullRemainExactWhilePartialWaterMoves() {
         for(i in 0..64) {
             assertEquals(1.0,WaterMotion.surface(0.0,i/64.0,i.toDouble()),1e-9)
