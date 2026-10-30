@@ -38,7 +38,11 @@ void main() {
       await tester.tap(find.byTooltip('数据源与提醒'));
       await tester.pumpAndSettle();
       expect(find.text('数据源与提醒'), findsOneWidget);
-      await tester.ensureVisible(find.text('保存并连接'));
+      await tester.scrollUntilVisible(
+        find.text('保存并连接'),
+        300,
+        scrollable: find.byType(Scrollable).last,
+      );
       await tester.tap(find.text('保存并连接'));
       await tester.pumpAndSettle();
       expect(platform.saved!.mode, 'demo');
