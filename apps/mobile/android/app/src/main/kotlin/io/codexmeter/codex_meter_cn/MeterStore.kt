@@ -56,15 +56,19 @@ object MeterStore {
     @Synchronized fun save(context: Context, config: JSONObject) {
         require(config.optString("mode") in setOf("demo", "direct", "worker"))
         require(config.getInt("threshold") in 5..50)
+        require(config.optInt("refreshMinutes",3) in setOf(1,3,5,10))
+        val previousSource = try { MeterStore.config(context)?.let { source(it) } } catch (_: Exception) { null }
         source(config)?.let { (url, token) -> SnapshotProtocol.endpoint(url); require(token.length in 32..1000 && !token.contains('\n') && !token.contains('\r')) }
         val editor = prefs(context).edit().putString("encryptedConfig", encrypt(config.toString()))
         // Source switches must not expose another account's cached quotas or alarms.
-        editor.remove("snapshot").remove("fiveHour_low").remove("weekly_low").remove("lastError").commit()
+        if(previousSource != source(config)) editor.remove("snapshot").remove("fiveHour_low").remove("weekly_low").remove("lastError")
+        editor.commit()
         cancelAlarms(context)
-        NotificationManagerCompat.from(context).cancelAll()
+        for(id in listOf(10,11,20,21)) NotificationManagerCompat.from(context).cancel(id)
         scheduleWork(context, config)
         MeterWidget.updateAll(context)
         MeterTileService.update(context)
+        MeterMonitorService.sync(context, true)
     }
     fun scheduleWork(context: Context, config: JSONObject) {
         val work = WorkManager.getInstance(context)

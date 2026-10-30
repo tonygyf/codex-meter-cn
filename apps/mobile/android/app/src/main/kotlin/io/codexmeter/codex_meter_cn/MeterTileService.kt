@@ -34,11 +34,22 @@ object QuotaTileSummary {
 }
 
 class MeterTileService : TileService() {
+    private val changes = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if(key=="snapshot" || key=="lastError") render()
+    }
     companion object {
         fun update(context: Context) = requestListeningState(context, ComponentName(context, MeterTileService::class.java))
     }
     override fun onStartListening() {
         super.onStartListening()
+        MeterStore.prefs(this).registerOnSharedPreferenceChangeListener(changes)
+        render()
+    }
+    override fun onStopListening() {
+        MeterStore.prefs(this).unregisterOnSharedPreferenceChangeListener(changes)
+        super.onStopListening()
+    }
+    private fun render() {
         val prefs = MeterStore.prefs(this)
         val snapshot = try { prefs.getString("snapshot", null)?.let { SnapshotProtocol.parse(it) } } catch (_: Exception) { null }
         val (text, fresh) = QuotaTileSummary.text(snapshot, System.currentTimeMillis() / 1000, prefs.getBoolean("lastError", false))

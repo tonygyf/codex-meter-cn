@@ -5,8 +5,8 @@ import 'snapshot.dart';
 
 class MeterConfig {
   final String mode, directUrl, workerUrl, directToken, workerToken;
-  final bool notifications;
-  final int threshold;
+  final bool notifications, backgroundRefresh;
+  final int threshold, refreshMinutes;
   const MeterConfig({
     this.mode = 'demo',
     this.directUrl = 'http://127.0.0.1:8788/v1/snapshot',
@@ -15,6 +15,8 @@ class MeterConfig {
     this.workerToken = '',
     this.notifications = false,
     this.threshold = 20,
+    this.backgroundRefresh = true,
+    this.refreshMinutes = 3,
   });
   String get url => mode == 'worker' ? workerUrl : directUrl;
   String get token => mode == 'worker' ? workerToken : directToken;
@@ -26,6 +28,8 @@ class MeterConfig {
     'workerToken': workerToken,
     'notifications': notifications,
     'threshold': threshold,
+    'backgroundRefresh': backgroundRefresh,
+    'refreshMinutes': refreshMinutes,
   };
   factory MeterConfig.parse(String value) {
     final json = jsonDecode(value) as Map<String, dynamic>;
@@ -37,6 +41,10 @@ class MeterConfig {
       workerToken: json['workerToken'] as String? ?? '',
       notifications: json['notifications'] == true,
       threshold: json['threshold'] as int? ?? 20,
+      backgroundRefresh: json['backgroundRefresh'] != false,
+      refreshMinutes: [1, 3, 5, 10].contains(json['refreshMinutes'])
+          ? json['refreshMinutes'] as int
+          : 3,
     );
   }
 }
@@ -73,6 +81,9 @@ String normalizeWorkerEndpoint(String value) {
 }
 
 abstract class MeterPlatform {
+  Future<void> widgetAppearance() async {}
+  Future<void> appAppearance() async {}
+  Future<void> batterySettings() async {}
   Future<bool> addQuickTile() async => false;
   Future<Map<String, dynamic>> load();
   Future<void> save(MeterConfig config);
@@ -81,6 +92,12 @@ abstract class MeterPlatform {
 }
 
 class AndroidMeterPlatform extends MeterPlatform {
+  @override
+  Future<void> widgetAppearance() => channel.invokeMethod('widgetAppearance');
+  @override
+  Future<void> appAppearance() => channel.invokeMethod('appAppearance');
+  @override
+  Future<void> batterySettings() => channel.invokeMethod('batterySettings');
   @override
   Future<bool> addQuickTile() async =>
       await channel.invokeMethod<bool>('addQuickTile') ?? false;

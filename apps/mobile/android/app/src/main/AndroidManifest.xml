@@ -2,13 +2,15 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <application
         android:label="Codex Meter CN"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:networkSecurityConfig="@xml/network_security_config"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher_ripple">
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -26,11 +28,12 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
+
         </activity>
+<activity-alias android:name=".IconRipple" android:targetActivity=".MainActivity" android:label="Codex Meter CN" android:icon="@mipmap/ic_launcher_ripple" android:enabled="true" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity-alias>
+<activity-alias android:name=".IconDrop" android:targetActivity=".MainActivity" android:label="Codex Meter CN" android:icon="@mipmap/ic_launcher_drop" android:enabled="false" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity-alias>
+<activity-alias android:name=".IconBottle" android:targetActivity=".MainActivity" android:label="Codex Meter CN" android:icon="@mipmap/ic_launcher_bottle" android:enabled="false" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity-alias>
+        <activity android:name=".IconPickerActivity" android:exported="false" android:theme="@android:style/Theme.Material.Light.NoActionBar"/>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
@@ -40,6 +43,10 @@
             <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE"/></intent-filter>
             <meta-data android:name="android.service.quicksettings.ACTIVE_TILE" android:value="true"/>
         </service>
+        <service android:name=".MeterMonitorService" android:foregroundServiceType="dataSync" android:exported="false"/>
+        <activity android:name=".WidgetConfigActivity" android:exported="true" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE"/></intent-filter>
+        </activity>
         <receiver android:name=".MeterWidget" android:exported="false">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/meter_widget_info"/>

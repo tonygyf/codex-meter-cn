@@ -32,6 +32,7 @@ class _MeterHomeState extends State<MeterHome> with WidgetsBindingObserver {
   Snapshot? snapshot;
   String? error;
   bool loading = false, ready = false;
+  String monitorState = 'stopped';
   Timer? tick, poll;
   @override
   void initState() {
@@ -40,18 +41,36 @@ class _MeterHomeState extends State<MeterHome> with WidgetsBindingObserver {
     tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
     });
-    poll = Timer.periodic(const Duration(minutes: 5), (_) {
+    poll = Timer.periodic(const Duration(seconds: 15), (_) {
       if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
-        refresh();
+        refreshFromCache();
       }
     });
     initialize();
+  }
+
+  Future<void> refreshFromCache() async {
+    if (!ready || config.mode == 'demo') return;
+    try {
+      final stored = await widget.platform.load();
+      if (!mounted) return;
+      final raw = stored['snapshot'];
+      final fresh = raw is String ? Snapshot.parse(raw) : null;
+      setState(() {
+        monitorState = stored['monitorState'] as String? ?? 'stopped';
+        if (fresh != null) snapshot = fresh;
+        error = stored['lastError'] == true ? '后台暂时无法连接，显示上次额度' : null;
+      });
+    } catch (_) {
+      /* Keep the last validated snapshot. */
+    }
   }
 
   Future<void> initialize() async {
     try {
       final stored = await widget.platform.load();
       if (!mounted) return;
+      monitorState = stored['monitorState'] as String? ?? 'stopped';
       if (stored['config'] is String) {
         config = MeterConfig.parse(stored['config']);
       }
@@ -180,6 +199,17 @@ class _MeterHomeState extends State<MeterHome> with WidgetsBindingObserver {
                 ),
               ],
             ),
+            if (config.mode != 'demo')
+              Notice(
+                config.backgroundRefresh
+                    ? switch (monitorState) {
+                        'running' =>
+                          '自动监测中 · 每 ${config.refreshMinutes} 分钟更新，关闭页面后仍会继续',
+                        'timeLimit' => '系统后台时限已到，已回退省电刷新；返回应用后会尝试恢复',
+                        _ => '自动监测等待系统启动；可前往设置检查通知与省电权限',
+                      }
+                    : '省电后台刷新 · 约 15 分钟或更久',
+              ),
             if (config.mode == 'demo')
               const Notice('当前为模拟数据。前往设置接入采集器或 Worker，演示模式不会触发提醒。'),
             if (error != null) Notice(error!),
@@ -218,6 +248,17 @@ class _MeterHomeState extends State<MeterHome> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 8),
             OutlinedButton.icon(
+              onPressed: widget.platform.widgetAppearance,
+              icon: const Icon(Icons.water_outlined),
+              label: const Text('桌面组件 · 尺寸与主题预览'),
+            ),
+            TextButton.icon(
+              onPressed: widget.platform.appAppearance,
+              icon: const Icon(Icons.palette_outlined),
+              label: const Text('选择 App 图标'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
               onPressed: () async {
                 final added = await widget.platform.addQuickTile();
                 if (context.mounted) {
@@ -237,7 +278,7 @@ class _MeterHomeState extends State<MeterHome> with WidgetsBindingObserver {
             ),
             const SizedBox(height: 16),
             const Text(
-              '桌面长按 → 小组件 → Codex Meter CN。后台约每 15 分钟尝试更新，实际时间由 Android 决定。',
+              '桌面长按 → 小组件 → Codex Meter CN。拖动调整到 2×1、2×2 或 2×3；组件右上角可单独更换样式与配色。',
               style: TextStyle(color: Colors.black54),
             ),
           ],
@@ -343,7 +384,8 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late String mode;
-  late bool notifications;
+  late bool notifications, backgroundRefresh;
+  late int refreshMinutes;
   late double threshold;
   late final TextEditingController directUrl,
       workerUrl,
@@ -358,6 +400,8 @@ class _SettingsPageState extends State<SettingsPage> {
     final c = widget.config;
     mode = c.mode;
     notifications = c.notifications;
+    backgroundRefresh = c.backgroundRefresh;
+    refreshMinutes = c.refreshMinutes;
     threshold = c.threshold.toDouble();
     directUrl = TextEditingController(text: c.directUrl);
     workerUrl = TextEditingController(text: c.workerUrl);
@@ -396,6 +440,8 @@ class _SettingsPageState extends State<SettingsPage> {
         workerToken: workerToken.text.trim(),
         notifications: notifications,
         threshold: threshold.round(),
+        backgroundRefresh: backgroundRefresh,
+        refreshMinutes: refreshMinutes,
       );
       if (mode != 'demo') {
         validateEndpoint(c.url);
@@ -499,6 +545,35 @@ class _SettingsPageState extends State<SettingsPage> {
             '这里只填写网关的只读令牌，不填写 ChatGPT 凭证或 Worker 写入令牌。直连也读取采集器的统一快照接口。',
           ),
           const SizedBox(height: 20),
+        ],
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('常驻自动监测'),
+          subtitle: const Text('无需点击刷新；通过常驻通知保持后台更新'),
+          value: backgroundRefresh,
+          onChanged: saving
+              ? null
+              : (v) => setState(() => backgroundRefresh = v),
+        ),
+        if (backgroundRefresh) ...[
+          DropdownButtonFormField<int>(
+            initialValue: refreshMinutes,
+            decoration: const InputDecoration(labelText: '自动更新间隔'),
+            items: [1, 3, 5, 10]
+                .map((m) => DropdownMenuItem(value: m, child: Text('$m 分钟')))
+                .toList(),
+            onChanged: saving
+                ? null
+                : (v) => setState(() => refreshMinutes = v ?? 3),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Android 15+ 同步前台服务每天约有 6 小时额度。达到时限会回退为约 15 分钟的后台刷新；熄屏、省电和强行停止仍可能延迟。',
+          ),
+          TextButton(
+            onPressed: widget.platform.batterySettings,
+            child: const Text('打开应用系统设置（通知 / 电池 / 自启动）'),
+          ),
         ],
         SwitchListTile(
           contentPadding: EdgeInsets.zero,

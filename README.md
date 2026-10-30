@@ -1,6 +1,8 @@
 # Codex Meter CN
 
-中文优先的 Android Codex 额度查看器。Flutter + Dart 客户端，TypeScript Cloudflare Worker + KV 快照网关，Python 标准库采集器。当前为 **0.1.0 MVP**，支持自部署服务，与 OpenAI 无隶属关系。
+中文优先的 Android Codex 额度查看器。Flutter + Dart 客户端，TypeScript Cloudflare Worker + KV 快照网关，Python 标准库采集器。当前为 **1.0.0**，支持自部署服务，与 OpenAI 无隶属关系。
+
+最新升级说明：[1.0.0 自动监测与水位组件](docs/V1_0_0.md)。
 
 ## 已实现
 

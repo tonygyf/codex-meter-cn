@@ -70,6 +70,19 @@ void main() {
     expect(parsed.url, c.workerUrl);
     expect(parsed.directToken, 'direct');
   });
+  test('background preferences migrate and keep the selected interval', () {
+    final old = MeterConfig.parse('{"mode":"demo"}');
+    expect(old.backgroundRefresh, isTrue);
+    expect(old.refreshMinutes, 3);
+    final selected = MeterConfig.parse(
+      jsonEncode(
+        const MeterConfig(backgroundRefresh: false, refreshMinutes: 5).toJson(),
+      ),
+    );
+    expect(selected.backgroundRefresh, isFalse);
+    expect(selected.refreshMinutes, 5);
+    expect(MeterConfig.parse('{"refreshMinutes":0}').refreshMinutes, 3);
+  });
   test('Worker hostname is normalized without weakening URL validation', () {
     expect(
       normalizeWorkerEndpoint('meter.example.com'),
